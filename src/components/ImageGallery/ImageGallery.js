@@ -1,6 +1,6 @@
-import { Component } from "react";
-import ImageGalleryItem from "../ImageGalleryItem";
+import { useState, useEffect } from "react";
 import s from "./ImageGallery.module.css";
+import ImageGalleryItem from "../ImageGalleryItem";
 import Loader from "../Loader";
 import imageAPI from "../services/image-api";
 import Button from "../Button";
@@ -13,101 +13,89 @@ const Status = {
   REJECTED: "rejected",
 };
 
-export default class ImageGallery extends Component {
-  state = {
-    searchImg: null,
-    error: null,
-    status: Status.IDLE,
-    page: 1,
-    showModal: false,
-    activeTabIdx: 0,
+export default function ImageGallery({ searchImg }) {
+  const [collection, setCollection] = useState(null);
+  const [page, setPage] = useState(1);
+  const [status, setStatus] = useState(Status.IDLE);
+  const [error, setError] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [activeTabIxd, setActiveTabIxd] = useState(0);
+
+  useEffect(() => {
+    if (!searchImg) {
+      return;
+    }
+
+    setStatus(Status.PENDING);
+
+    imageAPI
+      .fetchImage(searchImg)
+      .then(({ hits }) => {
+        setCollection(hits);
+        setStatus(Status.RESOLVED);
+      })
+      .catch((error) => {
+        setError(error);
+        setPage(1);
+      });
+  }, [searchImg]);
+
+  useEffect(() => {
+    if (!searchImg) {
+      return;
+    }
+
+    imageAPI
+      .fetchImage(searchImg, page)
+      .then(({ hits }) => setCollection((prevState) => [...prevState, ...hits]))
+      .catch((error) => {
+        setError(error);
+        setStatus(Status.REJECTED);
+        setPage(1);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
+
+  const onLoadMoreButton = () => {
+    setPage((prevState) => prevState + 1);
+  };
+  const toggleModal = () => {
+    setShowModal((prevState) => !prevState);
   };
 
-  componentDidUpdate(prevProps, prevState) {
-    const { page } = this.state;
-    const prevSearchImg = prevProps.searchImg;
-    const nextSearchImg = this.props.searchImg;
-    const prevPage = prevState.page;
-    const nextPage = page;
-
-    if (prevSearchImg !== nextSearchImg) {
-      this.setState({ status: Status.PENDING, page: 1 });
-      imageAPI
-        .fetchImage(nextSearchImg, nextPage)
-        .then(({ hits }) =>
-          this.setState({ searchImg: hits, status: Status.RESOLVED })
-        )
-        .catch((error) =>
-          this.setState({ error, status: Status.REJECTED, page: 1 })
-        );
-    }
-
-    if (prevPage !== nextPage) {
-      imageAPI
-        .fetchImage(nextSearchImg, page)
-        .then(({ hits }) =>
-          this.setState(({ searchImg }) => ({
-            searchImg: [...searchImg, ...hits],
-          }))
-        )
-        .catch((error) =>
-          this.setState({ error, status: Status.REJECTED, page: 1 })
-        );
-    }
+  if (status === Status.IDLE) {
+    return <></>;
   }
-
-  setActiveTabIdx = (idx) => {
-    this.setState({ activeTabIdx: idx });
-  };
-
-  onLoadMoreButton = () => {
-    this.setState(({ page }) => ({
-      page: page + 1,
-    }));
-  };
-  toggleModal = () => {
-    this.setState(({ showModal }) => ({
-      showModal: !showModal,
-    }));
-  };
-
-  render() {
-    const { searchImg, error, status, showModal, activeTabIdx } = this.state;
-
-    if (status === Status.IDLE) {
-      return <></>;
+  if (status === Status.PENDING) {
+    return <Loader />;
+  }
+  if (status === Status.REJECTED) {
+    return <h1>{error.message}</h1>;
+  }
+  if (status === Status.RESOLVED) {
+    if (collection.length === 0) {
+      return <h1 className={s.alert}>No Images found</h1>;
     }
-    if (status === Status.PENDING) {
-      return <Loader />;
-    }
-    if (status === Status.REJECTED) {
-      return <h1>{error.message}</h1>;
-    }
-    if (status === Status.RESOLVED) {
-      const activeImg = searchImg[activeTabIdx];
-      return (
-        <>
-          {showModal && (
-            <Modal
-              src={activeImg.webformatURL}
-              onModalToggle={this.toggleModal}
+    const activeImg = collection[activeTabIxd];
+    return (
+      <>
+        {showModal && (
+          <Modal src={activeImg.webformatURL} onModalToggle={toggleModal} />
+        )}
+        <ul className={s.imageGallery}>
+          {collection.map((image, index) => (
+            <ImageGalleryItem
+              key={index}
+              image={image.webformatURL}
+              tag={image.tags}
+              onClick={setActiveTabIxd}
+              onModalToggle={toggleModal}
+              index={index}
             />
-          )}
-          <ul className={s.imageGallery}>
-            {searchImg.map((image, index) => (
-              <ImageGalleryItem
-                key={index}
-                image={image.webformatURL}
-                tag={image.tags}
-                onClick={this.setActiveTabIdx}
-                onModalToggle={this.toggleModal}
-                index={index}
-              />
-            ))}
-          </ul>
-          <Button onClick={this.onLoadMoreButton} />
-        </>
-      );
-    }
+          ))}
+        </ul>
+        {collection.length >= 20 && <Button onClick={onLoadMoreButton} />}
+      </>
+    );
   }
 }

@@ -1,61 +1,45 @@
-import { Component } from "react";
+import { useState } from "react";
 import { ImSearch } from "react-icons/im";
 import { toast } from "react-toastify";
 import s from "./Searchbar.module.css";
 
-class Searchbar extends Component {
-  state = {
-    targetImg: "",
+const Searchbar = ({ onSubmit }) => {
+  const [targetImg, setTargetImg] = useState("");
+
+  const handleChange = (e) => {
+    setTargetImg(e.currentTarget.value.toLowerCase());
   };
 
-  handleChange = (e) => {
-    this.setState({
-      targetImg: e.currentTarget.value.toLowerCase(),
-    });
-  };
-
-  handleSubmit = (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (this.state.targetImg.trim() === "") {
+    if (targetImg.trim() === "") {
       toast.error("enter search img");
       return;
     }
-
-    this.props.onSubmit(this.state);
-    this.setState({
-      targetImg: "",
-    });
+    onSubmit(targetImg);
+    setTargetImg("");
   };
+  return (
+    <header className={s.bar}>
+      <form className={s.form}>
+        <button type="submit" className={s.button} onClick={handleSubmit}>
+          <span>
+            <ImSearch />
+          </span>
+        </button>
 
-  render() {
-    const { targetImg } = this.state;
-
-    return (
-      <header className={s.bar}>
-        <form className={s.form}>
-          <button
-            type="submit"
-            className={s.button}
-            onClick={this.handleSubmit}
-          >
-            <span>
-              <ImSearch />
-            </span>
-          </button>
-
-          <input
-            onChange={this.handleChange}
-            className={s.input}
-            type="text"
-            placeholder="Search images and photos"
-            value={targetImg}
-            name="targetImg"
-          />
-        </form>
-      </header>
-    );
-  }
-}
+        <input
+          onChange={handleChange}
+          className={s.input}
+          type="text"
+          placeholder="Search images and photos"
+          value={targetImg}
+          name="targetImg"
+        />
+      </form>
+    </header>
+  );
+};
 
 export default Searchbar;
